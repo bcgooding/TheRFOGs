@@ -5,6 +5,9 @@
  */
 package therfogs;
 
+import javax.comm.*;
+import java.util.*;
+
 /**
  *
  * @author BCG
@@ -16,6 +19,36 @@ public class TheRFOGs {
      */
     public static void main(String[] args) {
         // TODO code application logic here
+        testSerial();
     }
     
+    protected static void testSerial()
+    {
+        String wantedPortName = "/dev/ttya";
+        Enumeration<CommPortIdentifier> portIdentifiers = CommPortIdentifier.getPortIdentifiers();
+     
+        //System.out.println(portIdentifiers.toString());
+        CommPortIdentifier portId = null;  // will be set if port found
+
+        while (portIdentifiers.hasMoreElements())
+        {
+            System.out.println("Has an element");
+            CommPortIdentifier pid = (CommPortIdentifier) portIdentifiers.nextElement();
+            //if(pid.getPortType() == CommPortIdentifier.PORT_SERIAL &&
+             //   pid.getName().equals(wantedPortName)) 
+            if(pid.getPortType() == CommPortIdentifier.PORT_SERIAL) 
+            {
+                //System.out.println(pid.getCurrentOwner());
+                System.out.println(pid.getName());
+                portId = pid;
+                break;
+            }
+        }
+
+        if(portId == null)
+        {
+            System.err.println("Could not find serial port " + wantedPortName);
+            System.exit(1);
+        }
+    }
 }
