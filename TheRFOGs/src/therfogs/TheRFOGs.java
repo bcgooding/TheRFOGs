@@ -25,7 +25,6 @@ public class TheRFOGs {
         connectReader();
         
         //testSerial();
-        
     }
     
     protected static void testSerial() throws ReaderException, Exception
@@ -75,11 +74,24 @@ public class TheRFOGs {
         return portNames;
     }
 
-    private static void connectReader() 
+    private static void connectReader() throws Exception 
     {
-        String[] portNames = scanForReader();
-        int portNumber = selectPortNumber(portNames);
-        setBaudRate();
+        try {
+            String[] portNames = scanForReader();
+            int portNumber = selectPortNumber(portNames);
+            //need to create the reader
+            r = Reader.create("tmr:///" + portNames[portNumber]);
+            setBaudRate();
+            System.out.println("Attempting to connect to Reader");
+            r.connect();
+            System.out.println("Connected to reader");
+            setRegion();
+        } catch (ReaderException ex) {
+            java.util.logging.Logger.getLogger(TheRFOGs.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
+        
+        
        
     }
 
@@ -113,18 +125,68 @@ public class TheRFOGs {
         
         System.out.println("You selected: " + portNames[number-1]);
         
-        return number;
+        return (number-1);
     }
 
     private static void setBaudRate() {
         
-        try {
-            System.out.println("Changing baudrate to " + 0);
-            r.paramSet("/reader/baudrate", Integer.parseInt("0"));
-            System.out.println(r.paramGet("/reader/baudrate"));
-        } catch (ReaderException ex) {
-            java.util.logging.Logger.getLogger(TheRFOGs.class.getName()).log(Level.SEVERE, null, ex);
+        Scanner inputReader = new Scanner(System.in);
+        System.out.println("Available Baud Rates");
+        System.out.println("9600");
+        System.out.println("19200");
+        System.out.println("38400");
+        System.out.println("230400");
+        System.out.println("460800");
+        System.out.println("921600");
+        System.out.print("Enter one of the baud rates from above (0 uses the default baud rate): ");
+        int baud = 0;
+        
+        try{
+            
+            baud = inputReader.nextInt();
+            System.out.println("");
+            while(baud != 0 && baud != 9600 && baud != 19200 && baud != 38400 && baud != 230400
+                    && baud != 460800 && baud != 921600)
+            {
+                System.out.print("Please select one of the baud rates listed: ");
+                baud = inputReader.nextInt();
+                System.out.println("");
+            }
+        }
+        catch(InputMismatchException e)
+        {
+            System.out.println("You must enter a number next time. Closing Application");
+            System.exit(1);
+        }
+        
+        if(baud > 1)
+        {
+            try {
+                System.out.println("Changing baudrate to " + baud);
+                r.paramSet("/reader/baudrate", baud);
+                System.out.println(r.paramGet("/reader/baudrate"));
+            } catch (ReaderException ex) {
+                java.util.logging.Logger.getLogger(TheRFOGs.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
       }
+
+    private static void setRegion() throws Exception 
+    {
+        System.out.println("Setting Region");
+        if (Reader.Region.UNSPEC == (Reader.Region)r.paramGet("/reader/region/id"))
+        {
+            Reader.Region[] supportedRegions = (Reader.Region[])r.paramGet(TMConstants.TMR_PARAM_REGION_SUPPORTEDREGIONS);
+            if (supportedRegions.length < 1)
+            {
+                  throw new Exception("Reader doesn't support any regions");
+            }
+            else
+            {
+                  r.paramSet("/reader/region/id", supportedRegions[0]);
+            }
+        }
+        System.out.println("Region Set");
+    }
       
 }
