@@ -21,44 +21,69 @@ public class TheRFOGs {
      * @param args the command line arguments
      */
     public static void main(String[] args) throws Exception {
- 
-        connectReader();
-        //readTags();
-        //asyncRead();
-        ReadListener l = new PrintListener();
-        //timeout = 1000; // Is there a per-reader default value?
-        r.addReadListener(l);
-        r.startReading();
-        
+        boolean connected = false;
         Scanner inputReader = new Scanner(System.in);
-        System.out.print("Enter 0 to exit: ");
-        
-        boolean stopReading = false;
-        do{
+        while(true)
+        {
+            if(connected == false)
+            {
+                System.out.println("1) Connect to Reader\n" +
+                    "2) Exit\n");
+                System.out.print("Enter one of the above commands: ");
+            }
+            else{
+                System.out.println("1) Read Async\n" +
+                    "2) Read for 1 sec\n" +
+                    "3) Write EPC\n" +
+                    "4) Exit\n");
+                System.out.print("Enter one of the above commands: ");
+            }
+            
+            int command = 4;
             try{
-                int number = inputReader.nextInt();
-                if(number == 0)
+            
+                command = inputReader.nextInt();
+                System.out.println("");
+                if(connected == false)
                 {
-                    stopReading = true;
+                    if(command == 1){
+                        connectReader();
+                        connected = true;
+                    }
+                    else if(command == 2)
+                    {
+                        //disconnectReader();
+                        System.out.println("Closing the application");
+                        System.exit(1);
+                    }
+                }
+                else{
+                    if(command == 1)
+                        asyncRead();
+                    else if(command == 2)
+                        readTags();
+                    else if(command == 3)
+                        writeEPC();
+                    else if(command == 4)
+                    {
+                        disconnectReader();
+                        System.out.println("Closing the application");
+                        System.exit(1);
+                    }
                 }
             }
             catch(InputMismatchException e)
             {
-                r.stopReading();
-                r.removeReadListener(l);
                 disconnectReader();
                 System.out.println("You must enter a number next time. Closing Application");
                 System.exit(1);
             }
-        }while(stopReading == false);
-    
-        //Thread.sleep(timeout);
-        r.stopReading();
-    
-        r.removeReadListener(l);
+            
+            //connectReader();
         
-        disconnectReader();
-        //testSerial();
+           // asyncRead();
+        }
+            //disconnectReader();
     }
 
     private static String[] scanForReader() 
@@ -208,9 +233,10 @@ public class TheRFOGs {
     }
 
     //reads tag for a set amount of time
-    private static void readTags() {
+    private static TagReadData[] readTags() {
+        TagReadData[] tags = null;
         try { 
-            TagReadData[] tags = r.read(10000);
+            tags = r.read(1000);
             for(int x = 0; x < tags.length; x++)
             {
                 TagData tag = tags[x].getTag();
@@ -220,32 +246,87 @@ public class TheRFOGs {
             disconnectReader();
             java.util.logging.Logger.getLogger(TheRFOGs.class.getName()).log(Level.SEVERE, null, ex);
         }
+        return tags;
     }
   
     //ignore this for now
   public static void asyncRead() throws ReaderException
   {
-    int timeout;
-    ReadListener l = new PrintListener();
-
-      timeout = 1000; // Is there a per-reader default value?
-
-    r.addReadListener(l);
-
-
-    r.startReading();
-    try
-    {
-      Thread.sleep(timeout);
-      r.stopReading();
-    }
-    catch (InterruptedException e) {}
-
-    r.removeReadListener(l);
+     ReadListener l = new PrintListener();
+        //timeout = 1000; // Is there a per-reader default value?
+        r.addReadListener(l);
+        r.startReading();
+        
+        Scanner inputReader = new Scanner(System.in);
+        System.out.print("Enter 0 to Stop Reading: ");
+        
+        boolean stopReading = false;
+        do{
+            try{
+                int number = inputReader.nextInt();
+                if(number == 0)
+                {
+                    stopReading = true;
+                }
+            }
+            catch(InputMismatchException e)
+            {
+                r.stopReading();
+                r.removeReadListener(l);
+                disconnectReader();
+                System.out.println("You must enter a number next time. Closing Application");
+                System.exit(1);
+            }
+        }while(stopReading == false);
+    
+        //Thread.sleep(timeout);
+        r.stopReading();
+        r.removeReadListener(l);
   }
+
+    private static void writeEPC() throws ReaderException {
+        TagReadData tags[] = readTags();
+        
+        Scanner inputReader = new Scanner(System.in);
+        try{
+            System.out.println("Which of the above tags would you like to write the epc of (only enter the tag#): ");
+            int tagNum = inputReader.nextInt();
+            while(tagNum < 1 || tagNum > tags.length)
+            {
+                System.out.println("Please select a valid tag number.");
+                readTags();
+                System.out.println("Which of the above tags would you like to write the epc of (only enter the tag#): ");
+                tagNum = inputReader.nextInt();
+            }
+            
+            String newEPC = "";
+            
+            System.out.println("What is the new EPC#(24 numbers in length): ");
+            newEPC = inputReader.nextLine();
+            
+            while(newEPC.length() != 24)
+            {
+                System.out.println("Please enter a valid EPC number (24 numbers in length): ");
+                newEPC = inputReader.nextLine();
+            }
+            
+            TagData t = new TagData(newEPC);
+
+            //NEED TO FIX THIS TO TARGET THE CORRECT TAG
+            r.writeTag(null, t);
+        }
+        catch(InputMismatchException e)
+        {
+            System.out.println("Expecting a number, closing application");
+            r.destroy();
+            System.exit(1);
+        }
+        
+        
+    }
       
   //prints the tag info async
-      static class PrintListener implements ReadListener
+    static class PrintListener implements ReadListener
     {
         Vector<TagReadData> tags = new Vector<TagReadData>();
         Vector<Integer> counts = new Vector<Integer>();
