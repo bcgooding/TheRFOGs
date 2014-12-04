@@ -23,32 +23,42 @@ public class TheRFOGs {
     public static void main(String[] args) throws Exception {
  
         connectReader();
+        //readTags();
+        //asyncRead();
+        ReadListener l = new PrintListener();
+        //timeout = 1000; // Is there a per-reader default value?
+        r.addReadListener(l);
+        r.startReading();
         
-        //testSerial();
-    }
+        Scanner inputReader = new Scanner(System.in);
+        System.out.print("Enter 0 to exit: ");
+        
+        boolean stopReading = false;
+        do{
+            try{
+                int number = inputReader.nextInt();
+                if(number == 0)
+                {
+                    stopReading = true;
+                }
+            }
+            catch(InputMismatchException e)
+            {
+                r.stopReading();
+                r.removeReadListener(l);
+                disconnectReader();
+                System.out.println("You must enter a number next time. Closing Application");
+                System.exit(1);
+            }
+        }while(stopReading == false);
     
-    protected static void testSerial() throws ReaderException, Exception
-    {
-        System.out.println("Reached");
- 
+        //Thread.sleep(timeout);
+        r.stopReading();
+    
+        r.removeReadListener(l);
         
-        Reader r = null;
-        r = Reader.create("tmr:///COM6");
-        r.connect();
-        
-        if (Reader.Region.UNSPEC == (Reader.Region)r.paramGet("/reader/region/id"))
-        {
-            Reader.Region[] supportedRegions = (Reader.Region[])r.paramGet(TMConstants.TMR_PARAM_REGION_SUPPORTEDREGIONS);
-            if (supportedRegions.length < 1)
-            {
-                  throw new Exception("Reader doesn't support any regions");
-            }
-            else
-            {
-                  r.paramSet("/reader/region/id", supportedRegions[0]);
-            }
-        }
-        
+        disconnectReader();
+        //testSerial();
     }
 
     private static String[] scanForReader() 
@@ -87,11 +97,9 @@ public class TheRFOGs {
             System.out.println("Connected to reader");
             setRegion();
         } catch (ReaderException ex) {
+            disconnectReader();
             java.util.logging.Logger.getLogger(TheRFOGs.class.getName()).log(Level.SEVERE, null, ex);
         }
-        
-        
-        
        
     }
 
@@ -119,6 +127,7 @@ public class TheRFOGs {
         }
         catch(InputMismatchException e)
         {
+            disconnectReader();
             System.out.println("You must enter a number next time. Closing Application");
             System.exit(1);
         }
@@ -131,14 +140,15 @@ public class TheRFOGs {
     private static void setBaudRate() {
         
         Scanner inputReader = new Scanner(System.in);
-        System.out.println("Available Baud Rates");
+        System.out.println("Available Baud Rates:");
         System.out.println("9600");
         System.out.println("19200");
         System.out.println("38400");
         System.out.println("230400");
         System.out.println("460800");
         System.out.println("921600");
-        System.out.print("Enter one of the baud rates from above (0 uses the default baud rate): ");
+        System.out.print("Enter one of the baud rates from above "+
+                "(entering 0 uses the default baud rate): ");
         int baud = 0;
         
         try{
@@ -155,6 +165,7 @@ public class TheRFOGs {
         }
         catch(InputMismatchException e)
         {
+            disconnectReader();
             System.out.println("You must enter a number next time. Closing Application");
             System.exit(1);
         }
@@ -166,6 +177,7 @@ public class TheRFOGs {
                 r.paramSet("/reader/baudrate", baud);
                 System.out.println(r.paramGet("/reader/baudrate"));
             } catch (ReaderException ex) {
+                disconnectReader();
                 java.util.logging.Logger.getLogger(TheRFOGs.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -179,6 +191,7 @@ public class TheRFOGs {
             Reader.Region[] supportedRegions = (Reader.Region[])r.paramGet(TMConstants.TMR_PARAM_REGION_SUPPORTEDREGIONS);
             if (supportedRegions.length < 1)
             {
+                  disconnectReader();
                   throw new Exception("Reader doesn't support any regions");
             }
             else
@@ -187,6 +200,90 @@ public class TheRFOGs {
             }
         }
         System.out.println("Region Set");
+    }
+
+    private static void disconnectReader() 
+    {
+        r.destroy();
+    }
+
+    //reads tag for a set amount of time
+    private static void readTags() {
+        try { 
+            TagReadData[] tags = r.read(10000);
+            for(int x = 0; x < tags.length; x++)
+            {
+                TagData tag = tags[x].getTag();
+                System.out.println("Tag " + (x+1) + " EPC: " + tag.epcString());
+            }
+        } catch (ReaderException ex) {
+            disconnectReader();
+            java.util.logging.Logger.getLogger(TheRFOGs.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+  
+    //ignore this for now
+  public static void asyncRead() throws ReaderException
+  {
+    int timeout;
+    ReadListener l = new PrintListener();
+
+      timeout = 1000; // Is there a per-reader default value?
+
+    r.addReadListener(l);
+
+
+    r.startReading();
+    try
+    {
+      Thread.sleep(timeout);
+      r.stopReading();
+    }
+    catch (InterruptedException e) {}
+
+    r.removeReadListener(l);
+  }
+      
+  //prints the tag info async
+      static class PrintListener implements ReadListener
+    {
+        Vector<TagReadData> tags = new Vector<TagReadData>();
+        Vector<Integer> counts = new Vector<Integer>();
+        
+        public void tagRead(Reader r, TagReadData tr)
+        {
+            //String epc = tr.epcString();
+            listTags(tr);
+            //System.out.println("Background read: " + tr.toString());
+        }
+        private void listTags(TagReadData tr)
+        {
+            if(tags.size() == 0){
+                tags.add(tr);
+                counts.add(1);
+            }
+            boolean duplicate = false;
+            for(int x = 0; x < tags.size(); x++)
+            {
+                String epc = tr.epcString();
+                //checking for same epc
+                if(epc.compareTo(tags.get(x).epcString()) == 0){
+                    duplicate = true;
+                    counts.set(x, counts.get(x)+1);
+                }
+            }
+            
+            if(!duplicate)
+            {
+                tags.add(tr);
+                counts.add(1);
+            }
+            
+            for(int x = 0; x < tags.size(); x++)
+            {
+                System.out.println("EPC: " + tags.get(x).epcString() + " Count: " + counts.get(x));
+            }
+        }
     }
       
 }
