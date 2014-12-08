@@ -16,7 +16,7 @@ import java.util.logging.Level;
 public class TheRFOGs {
     
      Reader r = null;
-     ReadListener l = new PrintListener();
+     PrintListener l = new PrintListener();
    
 
 /**
@@ -55,9 +55,9 @@ public class TheRFOGs {
  * @param portName the name of the port the user will be connecting to
  * @param baudRate the rate the baud will be set to. Based on the input from the
  *                  user selection. int
- * @return      void
+ * @return true if the reader connected successfully
  */
-    public  void connectReader(String portName, int baudRate) throws Exception 
+    public boolean connectReader(String portName, int baudRate) throws Exception 
     {
         try {
             //need to create the reader
@@ -69,11 +69,12 @@ public class TheRFOGs {
             r.connect();
             //System.out.println("Connected to reader");
             setRegion();
+            
         } catch (ReaderException ex) {
             disconnectReader();
-            java.util.logging.Logger.getLogger(TheRFOGs.class.getName()).log(Level.SEVERE, null, ex);
+            return false;
         }
-       
+       return true;
     }
 
     /**
@@ -241,7 +242,6 @@ public class TheRFOGs {
         
         r.addReadListener(l);
         r.startReading();
-
   }
   
    /**
@@ -258,8 +258,11 @@ public class TheRFOGs {
  
   /**
  * 
- * Overwrites the EPC of the Selected Tag
- * 
+ * Overwrites the EPC of the Selected Tag. 
+ *          To create a TagData:
+ *                  TagData = tags[index]; //with tags being the array of tags
+ *                                          returned by readtags
+ *              
  * @param selectedTag this is a tagData element containing the selected tag's info
  * @param newEPC      a string containing the new EPC. Must be 24 characters long
  */
@@ -325,7 +328,7 @@ public class TheRFOGs {
         if(actions.length == 0)
         {
             String []error = new String[1];
-            error[1] = "No Optiones were selected";
+            error[1] = "No Options were selected";
             return error;
         }
         else
@@ -618,15 +621,15 @@ public class TheRFOGs {
  * @param target this is a tagData element containing the selected tag's info
  * @return returns an array of strings containing the inspected tags information.
  *          Info is stored in the following elements of the array:
- *              0: CRC
+ *              0: CRC  //start of EPC Data
  *              1: PC
- *              2: EPC
+ *              2: EPC  //end of EPC DATA
  *              3: Access Password
  *              4: Kill Password
- *              5: ClsID
+ *              5: ClsID  //start of TID
  *              6: VendorID
  *              7: ModelID
- *              8: UniqueID
+ *              8: UniqueID //end of TID
  *              9: User Memory
  */
     public  String[] inspectTag(TagData target)
@@ -850,7 +853,7 @@ public class TheRFOGs {
  * reads.
  *
  */
-     class PrintListener implements ReadListener
+     public class PrintListener implements ReadListener
     {
         Vector<TagReadData> tags = new Vector<TagReadData>();
         Vector<Integer> counts = new Vector<Integer>();
